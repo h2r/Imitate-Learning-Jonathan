@@ -3,7 +3,7 @@ import rospy
 import itertools
 #import ros_numpy
 import message_filters
-from std_msgs.msg import Int32, Float32
+from std_msgs.msg import Int32, Float32, String
 from baxter_core_msgs.msg import DigitalIOState, EndpointState, EndEffectorState
 from sensor_msgs.msg import CompressedImage, Image, JointState
 import numpy as np
@@ -93,18 +93,13 @@ def callback(arm, rgb, depth, gripper):
   global writer
   if not is_recording:
    return
-  rgb_dir = save_folder+"rgb/"
-  depth_dir = save_folder+"depth/"
-  if not os.path.exists(rgb_dir):
-    os.mkdir(rgb_dir)
-    os.mkdir(depth_dir)
   # arm = ['head_nod', 'head_pan', 'left_e0', 'left_e1', 'left_s0', 'left_s1', 'left_w0', 'left_w1', 'left_w2', 'right_e0', 'right_e1', 'right_s0', 'right_s1', 'right_w0', 'right_w1', 'right_w2', 'torso_t0']
   # joint_ang = joint.position
   # if len(joint_ang) < 17:
   #   return
-  with open(rgb_dir + curr_time + '.jpg', 'w') as f:
+  with open(rgb_dir + curr_time + '_rgb.jpg', 'w') as f:
     f.write(rgb.data)
-  with open(depth_dir + curr_time + '.jpg', 'w') as f:
+  with open(depth_dir + curr_time + '_depth.jpg', 'w') as f:
     f.write(depth.data)
   pose = arm.pose
   # end effector position
@@ -128,17 +123,24 @@ def callback(arm, rgb, depth, gripper):
   else:
       print('WARNING: UNABLE TO WRITE DATA TO WRITER!') 
 
-def start_recording(io):
-    if not io.state:
-        return
-    if not is_recording:
-        begin_record()
-def begin_record():        
-    global save_folder
-    global task
-    global is_recording
-    global text_file
-    global writer
+def record(value):
+  global save_folder
+  global task
+  global is_recording
+  global text_file
+  global writer
+  print value.data
+  if value.data == "0":
+    if is_recording = False:
+      return
+    else:
+      if text_file != None:
+        text_file.close()
+        text_file = None
+        print('File closed')
+      is_recording=False
+      print('STOP')
+  else:
     save_folder_tmp='datas/' + task + '/' + str(time.time()) + '/'
     os.mkdir(save_folder_tmp)
     save_folder = save_folder_tmp
@@ -147,18 +149,6 @@ def begin_record():
     writer = csv.writer(text_file)
     is_recording = True
     print('START')
-def end_recording(io):
-    if not io.state:
-        return
-    global is_recording
-    global text_file
-    if text_file != None:
-        text_file.close()
-        text_file = None
-        print('File closed')
-    is_recording=False
-    print('STOP')
-
 
 #TODO CONSIDER COMPRESSED IMAGES 
 #joint_state_sub = message_filters.Subscriber('/robot/joint_states', JointState)
@@ -176,10 +166,8 @@ ts = ApproxTimeSync([right_arm_state_sub, rgb_state_sub,  depth_state_sub, gripp
 ts.registerCallback(callback)
 
 # Toggle
-start_button = message_filters.Subscriber('/robot/digital_io/right_lower_button/state', DigitalIOState)
-end_button = message_filters.Subscriber('/robot/digital_io/right_upper_button/state', DigitalIOState)
-start_button.registerCallback(start_recording)
-end_button.registerCallback(end_recording)
+toggle_button = message_filters.Subscriber('unity_learning_record/', String)
+toggle_button.registerCallback(record)
 
 print('Spinning')
 rospy.spin()
